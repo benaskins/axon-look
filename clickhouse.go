@@ -141,6 +141,22 @@ func (ch *ClickHouse) InitSchema(ctx context.Context) error {
 		) ENGINE = MergeTree()
 		ORDER BY (agent_slug, timestamp)`,
 
+		`CREATE TABLE IF NOT EXISTS events_eval (
+			timestamp DateTime64(3),
+			run_id String,
+			agent_slug LowCardinality(String),
+			user_id LowCardinality(String),
+			scenario String,
+			response String,
+			duration_ms UInt32,
+			tools_used String DEFAULT '[]',
+			passed UInt16,
+			failed UInt16,
+			total UInt16,
+			criteria String DEFAULT '[]'
+		) ENGINE = MergeTree()
+		ORDER BY (run_id, timestamp)`,
+
 		`CREATE TABLE IF NOT EXISTS events_run (
 			timestamp DateTime64(3),
 			run_id String,

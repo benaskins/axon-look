@@ -1,6 +1,9 @@
 package anal
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Event is a typed analytics event from a producer service.
 type Event struct {
@@ -44,4 +47,13 @@ type Event struct {
 	// consolidation fields
 	PatternsFound  uint16 `json:"patterns_found,omitempty"`
 	MemoriesMerged uint16 `json:"memories_merged,omitempty"`
+
+	// eval_result fields
+	Scenario  string          `json:"scenario,omitempty"`
+	Response  string          `json:"response,omitempty"`
+	ToolsUsed json.RawMessage `json:"tools_used,omitempty"`
+	Passed    uint16          `json:"passed,omitempty"`
+	Failed    uint16          `json:"failed,omitempty"`
+	Total     uint16          `json:"total,omitempty"`
+	Criteria  json.RawMessage `json:"criteria,omitempty"`
 }

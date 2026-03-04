@@ -38,6 +38,8 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("GET /api/agents/{slug}/relationship", &relationshipHandler{db: s.ch})
 		mux.Handle("GET /api/agents/{slug}/memories", &memoriesHandler{db: s.ch})
 		mux.Handle("GET /api/agents/{slug}/conversations", &conversationsHandler{db: s.ch})
+		mux.Handle("GET /api/evals", &evalsListHandler{db: s.ch})
+		mux.Handle("GET /api/evals/{run_id}", &evalsDetailHandler{db: s.ch})
 		mux.Handle("GET /api/runs", &runsHandler{db: s.ch})
 		mux.Handle("GET /api/runs/{run_id}/summary", &runSummaryHandler{db: s.ch})
 	}

@@ -232,6 +232,53 @@ func TestIngestHandler_RunID_OnRegularEvents(t *testing.T) {
 	}
 }
 
+func TestIngestHandler_EvalResultEvent(t *testing.T) {
+	ch := &mockClickHouse{}
+	handler := &ingestHandler{db: ch}
+
+	events := []Event{
+		{
+			Type:      "eval_result",
+			Timestamp: time.Date(2026, 3, 4, 17, 0, 0, 0, time.UTC),
+			RunID:     "run-20260304-170000",
+			AgentSlug: "xagent",
+			UserID:    "user1",
+			Scenario:  "greeting",
+			Response:  "Hello there!",
+			DurationMs: 2847,
+			ToolsUsed: json.RawMessage(`["check_weather"]`),
+			Passed:    1,
+			Failed:    2,
+			Total:     3,
+			Criteria:  json.RawMessage(`[{"criterion":"min_length","pass":true,"score":1,"reason":"ok"}]`),
+		},
+	}
+
+	body, _ := json.Marshal(events)
+	req := httptest.NewRequest(http.MethodPost, "/api/events", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Errorf("expected 202, got %d", w.Code)
+	}
+
+	if len(ch.execCalls) != 1 {
+		t.Fatalf("expected 1 exec call, got %d", len(ch.execCalls))
+	}
+
+	query := ch.execCalls[0]
+	if !strings.Contains(query, "events_eval") {
+		t.Errorf("expected events_eval table, got: %s", query)
+	}
+	if !strings.Contains(query, "greeting") {
+		t.Errorf("expected scenario name in query, got: %s", query)
+	}
+	if !strings.Contains(query, "run-20260304-170000") {
+		t.Errorf("expected run_id in query, got: %s", query)
+	}
+}
+
 func TestIngestHandler_UnknownEventType(t *testing.T) {
 	ch := &mockClickHouse{}
 	handler := &ingestHandler{db: ch}

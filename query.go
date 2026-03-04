@@ -231,6 +231,59 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	writeQueryResult(w, r, h.db, query)
 }
 
+// evalsListHandler serves GET /api/evals — lists eval runs with aggregate scores.
+type evalsListHandler struct {
+	db Querier
+}
+
+func (h *evalsListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	query := `
+		SELECT
+			run_id,
+			min(timestamp) as timestamp,
+			count() as scenarios,
+			sum(passed) as passed,
+			sum(failed) as failed,
+			sum(total) as total
+		FROM events_eval
+		GROUP BY run_id
+		ORDER BY timestamp DESC
+		FORMAT JSONEachRow`
+
+	writeQueryResult(w, r, h.db, query)
+}
+
+// evalsDetailHandler serves GET /api/evals/{run_id} — full scenario details for a run.
+type evalsDetailHandler struct {
+	db Querier
+}
+
+func (h *evalsDetailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("run_id")
+	if runID == "" {
+		axon.WriteError(w, http.StatusBadRequest, "run_id is required")
+		return
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			run_id,
+			scenario,
+			response,
+			duration_ms,
+			tools_used,
+			passed,
+			failed,
+			total,
+			criteria
+		FROM events_eval
+		WHERE run_id = '%s'
+		ORDER BY timestamp
+		FORMAT JSONEachRow`, runID)
+
+	writeQueryResult(w, r, h.db, query)
+}
+
 // runsHandler serves GET /api/runs — lists available runs
 type runsHandler struct {
 	db Querier

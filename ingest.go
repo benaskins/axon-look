@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/benaskins/axon"
 )
+
+func escapeSingleQuotes(s string) string {
+	return strings.ReplaceAll(s, "'", "\\'")
+}
 
 // Inserter executes insert statements against ClickHouse.
 type Inserter interface {
@@ -87,6 +92,20 @@ func insertQuery(e Event) (string, bool) {
 		return fmt.Sprintf(
 			"INSERT INTO events_consolidation (timestamp, agent_slug, user_id, patterns_found, memories_merged, run_id) VALUES ('%s', '%s', '%s', %d, %d, '%s')",
 			ts, e.AgentSlug, e.UserID, e.PatternsFound, e.MemoriesMerged, e.RunID,
+		), true
+
+	case "eval_result":
+		toolsUsed := "[]"
+		if len(e.ToolsUsed) > 0 {
+			toolsUsed = string(e.ToolsUsed)
+		}
+		criteria := "[]"
+		if len(e.Criteria) > 0 {
+			criteria = string(e.Criteria)
+		}
+		return fmt.Sprintf(
+			"INSERT INTO events_eval (timestamp, run_id, agent_slug, user_id, scenario, response, duration_ms, tools_used, passed, failed, total, criteria) VALUES ('%s', '%s', '%s', '%s', '%s', '%s', %d, '%s', %d, %d, %d, '%s')",
+			ts, e.RunID, e.AgentSlug, e.UserID, escapeSingleQuotes(e.Scenario), escapeSingleQuotes(e.Response), e.DurationMs, toolsUsed, e.Passed, e.Failed, e.Total, escapeSingleQuotes(criteria),
 		), true
 
 	case "run_started", "run_completed":

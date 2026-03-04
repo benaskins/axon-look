@@ -178,6 +178,52 @@ func TestRunSummaryHandler_MissingRunID(t *testing.T) {
 	}
 }
 
+func TestEvalsListHandler(t *testing.T) {
+	q := &mockQuerier{
+		results: map[string][]byte{
+			"": []byte(`{"run_id":"run-20260304-170000","plan":"smoke.yaml","timestamp":"2026-03-04 17:00:00.000","scenarios":3,"passed":4,"failed":6,"total":10}` + "\n"),
+		},
+	}
+	handler := &evalsListHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestEvalsDetailHandler(t *testing.T) {
+	q := &mockQuerier{
+		results: map[string][]byte{
+			"": []byte(`{"run_id":"run-20260304-170000","scenario":"greeting","response":"Hello!","duration_ms":2847,"tools_used":"[]","passed":1,"failed":2,"total":3,"criteria":"[{\"criterion\":\"min_length\",\"pass\":true,\"score\":1,\"reason\":\"ok\"}]"}` + "\n"),
+		},
+	}
+	handler := &evalsDetailHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/run-20260304-170000", nil)
+	req.SetPathValue("run_id", "run-20260304-170000")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestEvalsDetailHandler_MissingRunID(t *testing.T) {
+	handler := &evalsDetailHandler{db: &mockQuerier{results: map[string][]byte{}}}
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
 func TestConversationsHandler(t *testing.T) {
 	q := &mockQuerier{
 		results: map[string][]byte{
