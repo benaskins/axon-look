@@ -143,6 +143,41 @@ func TestMemoriesHandler(t *testing.T) {
 	}
 }
 
+func TestRunSummaryHandler(t *testing.T) {
+	q := &mockQuerier{
+		results: map[string][]byte{
+			"": []byte(`{"run_id":"run-20260304-153000","messages":6,"tool_invocations":2,"conversations":3,"memories":1,"relationship_snapshots":1,"consolidations":0}` + "\n"),
+		},
+	}
+	handler := &runSummaryHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/runs/run-20260304-153000/summary", nil)
+	req.SetPathValue("run_id", "run-20260304-153000")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]any
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp["run_id"] != "run-20260304-153000" {
+		t.Errorf("expected run_id, got %v", resp["run_id"])
+	}
+}
+
+func TestRunSummaryHandler_MissingRunID(t *testing.T) {
+	handler := &runSummaryHandler{db: &mockQuerier{results: map[string][]byte{}}}
+	req := httptest.NewRequest(http.MethodGet, "/api/runs//summary", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
 func TestConversationsHandler(t *testing.T) {
 	q := &mockQuerier{
 		results: map[string][]byte{

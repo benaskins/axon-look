@@ -230,3 +230,30 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	writeQueryResult(w, r, h.db, query)
 }
+
+// runSummaryHandler serves GET /api/runs/{run_id}/summary
+type runSummaryHandler struct {
+	db Querier
+}
+
+func (h *runSummaryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("run_id")
+	if runID == "" {
+		axon.WriteError(w, http.StatusBadRequest, "run_id is required")
+		return
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			'%s' as run_id,
+			(SELECT count() FROM events_message WHERE run_id = '%s') as messages,
+			(SELECT count() FROM events_tool_invocation WHERE run_id = '%s') as tool_invocations,
+			(SELECT uniqExact(conversation_id) FROM events_message WHERE run_id = '%s') as conversations,
+			(SELECT count() FROM events_memory WHERE run_id = '%s') as memories,
+			(SELECT count() FROM events_relationship WHERE run_id = '%s') as relationship_snapshots,
+			(SELECT count() FROM events_consolidation WHERE run_id = '%s') as consolidations
+		FORMAT JSONEachRow`,
+		runID, runID, runID, runID, runID, runID, runID)
+
+	writeQueryResult(w, r, h.db, query)
+}
