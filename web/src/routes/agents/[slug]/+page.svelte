@@ -1,6 +1,6 @@
 <script>
   import { page } from '$app/stores';
-  import { fetchAgentStats, fetchMessages, fetchTools, fetchRelationship, fetchMemories, fetchConversations } from '$lib/api.js';
+  import { fetchAgentStats, fetchMessages, fetchTools, fetchRelationship, fetchMemories, fetchConversations, fetchRuns, fetchRunSummary } from '$lib/api.js';
 
   let slug = $derived($page.params.slug);
 
@@ -10,6 +10,9 @@
   let relationship = $state([]);
   let memories = $state([]);
   let conversations = $state([]);
+  let runs = $state([]);
+  let selectedRunId = $state('');
+  let runSummary = $state(null);
   let loading = $state(true);
   let error = $state(null);
 
@@ -17,22 +20,39 @@
     loadData(slug);
   });
 
+  $effect(() => {
+    if (selectedRunId) {
+      loadRunSummary(selectedRunId);
+    } else {
+      runSummary = null;
+    }
+  });
+
   async function loadData(s) {
     loading = true;
     error = null;
     try {
-      [stats, messages, tools, relationship, memories, conversations] = await Promise.all([
+      [stats, messages, tools, relationship, memories, conversations, runs] = await Promise.all([
         fetchAgentStats(s),
         fetchMessages(s),
         fetchTools(s),
         fetchRelationship(s),
         fetchMemories(s),
         fetchConversations(s),
+        fetchRuns(),
       ]);
     } catch (e) {
       error = e.message;
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadRunSummary(runId) {
+    try {
+      runSummary = await fetchRunSummary(runId);
+    } catch (e) {
+      runSummary = null;
     }
   }
 
@@ -53,7 +73,47 @@
   <header>
     <a href="/" class="back">&larr; agents</a>
     <h1>{slug}</h1>
+    {#if runs.length > 0}
+      <select class="run-selector" bind:value={selectedRunId}>
+        <option value="">All data</option>
+        {#each runs as run}
+          <option value={run.run_id}>{run.run_id} — {run.description || 'untitled'}</option>
+        {/each}
+      </select>
+    {/if}
   </header>
+
+  {#if runSummary}
+    <section class="panel run-summary">
+      <h2>Run: {selectedRunId}</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Messages</span>
+          <span class="stat-value">{fmt(runSummary.messages)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Tool Calls</span>
+          <span class="stat-value">{fmt(runSummary.tool_invocations)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Conversations</span>
+          <span class="stat-value">{fmt(runSummary.conversations)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Memories</span>
+          <span class="stat-value">{fmt(runSummary.memories)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Relationships</span>
+          <span class="stat-value">{fmt(runSummary.relationship_snapshots)}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Consolidations</span>
+          <span class="stat-value">{fmt(runSummary.consolidations)}</span>
+        </div>
+      </div>
+    </section>
+  {/if}
 
   {#if loading}
     <p class="status">Loading...</p>
@@ -349,5 +409,20 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--accent);
+  }
+
+  .run-selector {
+    margin-left: auto;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+  }
+
+  .run-summary {
+    border-color: var(--accent);
   }
 </style>

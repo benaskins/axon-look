@@ -231,6 +231,27 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	writeQueryResult(w, r, h.db, query)
 }
 
+// runsHandler serves GET /api/runs — lists available runs
+type runsHandler struct {
+	db Querier
+}
+
+func (h *runsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	query := `
+		SELECT
+			run_id,
+			min(timestamp) as started_at,
+			max(timestamp) as completed_at,
+			argMin(description, timestamp) as description,
+			argMin(agent_slug, timestamp) as agent_slug
+		FROM events_run
+		GROUP BY run_id
+		ORDER BY started_at DESC
+		FORMAT JSONEachRow`
+
+	writeQueryResult(w, r, h.db, query)
+}
+
 // runSummaryHandler serves GET /api/runs/{run_id}/summary
 type runSummaryHandler struct {
 	db Querier

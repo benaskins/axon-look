@@ -60,3 +60,18 @@ export async function fetchMemories(slug, period = '30d') {
 export async function fetchConversations(slug) {
   return fetchApi(`/api/agents/${slug}/conversations`);
 }
+
+/**
+ * Fetch available runs.
+ */
+export async function fetchRuns() {
+  return fetchApi('/api/runs');
+}
+
+/**
+ * Fetch run summary by run_id.
+ */
+export async function fetchRunSummary(runId) {
+  const rows = await fetchApi(`/api/runs/${runId}/summary`);
+  return rows[0] || {};
+}
