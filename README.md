@@ -1,6 +1,6 @@
 # axon-look
 
-An analytics event ingestion and query service backed by ClickHouse.
+An analytics event ingestion and query service backed by ClickHouse. Part of [lamina](https://github.com/benaskins/lamina) — each axon package can be used independently.
 
 Accepts structured events via HTTP, stores them in typed tables, and exposes query endpoints for dashboards.
 
