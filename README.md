@@ -1,36 +1,32 @@
 # axon-look
 
-An analytics event ingestion and query service backed by ClickHouse. Part of [lamina](https://github.com/benaskins/lamina) — each axon package can be used independently.
+> Domain package · Part of the [lamina](https://github.com/benaskins/lamina-mono) workspace
 
-Accepts structured events via HTTP, stores them in typed tables, and exposes query endpoints for dashboards.
+Analytics event ingestion and querying backed by ClickHouse. Accepts structured events via HTTP (messages, tool invocations, conversations, memory extractions, eval results, runs), stores them in typed tables, and exposes query endpoints for per-agent stats, time-series breakdowns, and eval summaries. All queries use ClickHouse parameterized queries to prevent SQL injection.
 
-## Install
+## Getting started
 
 ```
 go get github.com/benaskins/axon-look@latest
 ```
 
-Requires Go 1.24+.
-
-## Usage
+axon-look is a domain package — it provides HTTP handlers and a ClickHouse client, but no `main` function. You assemble it in your own composition root (see `example/main.go`).
 
 ```go
-ch := look.NewClickHouse(clickhouseURL)
+ch := look.NewClickHouse("http://localhost:8123")
 ch.InitSchema(ctx)
 
-srv := look.NewServer(ch, ch)
-http.Handle("/", srv)
+srv := look.NewServer(nil, ch)
+http.Handle("/", srv.Handler())
 ```
 
-### Key types
+## Key types
 
-- `Event` — analytics event with typed fields
-- `Inserter` — interface for event ingestion
-- `Querier` — interface for event queries
-- `ClickHouse` — ClickHouse client implementing both interfaces
-- `Server` — HTTP server with ingest and query endpoints
-
-All queries use ClickHouse parameterized queries to prevent SQL injection.
+- **`Event`** — structured analytics event with typed fields (message, tool invocation, eval result, etc.)
+- **`ClickHouse`** — HTTP client for ClickHouse, implements both `Inserter` and `Querier`
+- **`Inserter`** — interface for executing insert statements
+- **`Querier`** — interface for executing select queries
+- **`Server`** — HTTP server wiring ingest (`POST /api/events`) and query endpoints
 
 ## License
 
