@@ -219,7 +219,8 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	query := `
+	period := periodFilter(r.URL.Query().Get("period"), 90)
+	query := fmt.Sprintf(`
 		SELECT
 			m.conversation_id as conversation_id,
 			count() as messages,
@@ -228,10 +229,10 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			avg(m.duration_ms) as avg_duration_ms,
 			(SELECT count() FROM events_tool_invocation t WHERE t.conversation_id = m.conversation_id) as tools_used
 		FROM events_message m
-		WHERE m.agent_slug = {slug:String}
+		WHERE m.agent_slug = {slug:String} AND %s
 		GROUP BY m.conversation_id
 		ORDER BY max(m.timestamp) DESC
-		FORMAT JSONEachRow`
+		FORMAT JSONEachRow`, period)
 	params := map[string]string{"slug": slug}
 
 	writeQueryResult(w, r, h.db, query, params)
