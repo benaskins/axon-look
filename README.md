@@ -10,6 +10,8 @@ Analytics event ingestion and querying backed by ClickHouse. Accepts structured 
 go get github.com/benaskins/axon-look@latest
 ```
 
+Requires Go 1.26+.
+
 axon-look is a domain package — it provides HTTP handlers and a ClickHouse client, but no `main` function. You assemble it in your own composition root (see `example/main.go`).
 
 ```go
