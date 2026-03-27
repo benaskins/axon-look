@@ -1,3 +1,8 @@
+---
+module: github.com/benaskins/axon-look
+kind: service
+---
+
 # axon-look
 
 Analytics event ingestion and querying backed by ClickHouse.
