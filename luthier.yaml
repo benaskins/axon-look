@@ -1,0 +1,10 @@
+name: axon-look
+purpose: Analytics event ingestion and querying (ClickHouse)
+use_when: Analytics/observability
+deterministic: true
+snippet:
+  imports:
+    - path: github.com/benaskins/axon-look
+      alias: look
+  requires:
+    - github.com/benaskins/axon-look
