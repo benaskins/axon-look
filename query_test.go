@@ -297,6 +297,89 @@ func TestConversationsHandler(t *testing.T) {
 	}
 }
 
+func TestBfclRunsHandler(t *testing.T) {
+	q := &mockQuerier{
+		results: map[string][]byte{
+			"": []byte(`{"run_id":"bfcl-abc","model":"qwen3.5","provider":"local","timestamp":"2026-03-30","total":15,"passed":14,"failed":1,"accuracy":93.3,"avg_duration_ms":5500,"parameters":"{}"}` + "\n"),
+		},
+	}
+	handler := &bfclRunsHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/bfcl", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(q.calls[0].query, "eval_bfcl") {
+		t.Errorf("expected query against eval_bfcl, got: %s", q.calls[0].query)
+	}
+}
+
+func TestBfclRunsHandler_ModelFilter(t *testing.T) {
+	q := &mockQuerier{results: map[string][]byte{"": []byte("{}\n")}}
+	handler := &bfclRunsHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/bfcl?model=qwen3.5", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if q.calls[0].params["model"] != "qwen3.5" {
+		t.Errorf("expected model param, got: %v", q.calls[0].params)
+	}
+	if !strings.Contains(q.calls[0].query, "{model:String}") {
+		t.Errorf("expected parameterized model filter, got: %s", q.calls[0].query)
+	}
+}
+
+func TestBfclDetailHandler(t *testing.T) {
+	q := &mockQuerier{results: map[string][]byte{"": []byte("{}\n")}}
+	handler := &bfclDetailHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/bfcl/bfcl-abc", nil)
+	req.SetPathValue("run_id", "bfcl-abc")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if q.calls[0].params["run_id"] != "bfcl-abc" {
+		t.Errorf("expected run_id param, got: %v", q.calls[0].params)
+	}
+}
+
+func TestBfclDetailHandler_MissingRunID(t *testing.T) {
+	handler := &bfclDetailHandler{db: &mockQuerier{results: map[string][]byte{}}}
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/bfcl/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestBfclCompareHandler(t *testing.T) {
+	q := &mockQuerier{results: map[string][]byte{"": []byte("{}\n")}}
+	handler := &bfclCompareHandler{db: q}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/evals/bfcl/compare", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(q.calls[0].query, "eval_bfcl") {
+		t.Errorf("expected query against eval_bfcl, got: %s", q.calls[0].query)
+	}
+}
+
 func TestPeriodFilter_RejectsMaliciousInput(t *testing.T) {
 	// Malicious period values should fall through to defaults
 	result := periodFilter("1d; DROP TABLE", 7)

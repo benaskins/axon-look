@@ -292,6 +292,98 @@ func (h *evalsDetailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeQueryResult(w, r, h.db, query, params)
 }
 
+// bfclRunsHandler serves GET /api/evals/bfcl — lists BFCL eval runs with accuracy.
+type bfclRunsHandler struct {
+	db Querier
+}
+
+func (h *bfclRunsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	modelFilter := ""
+	params := map[string]string{}
+	if m := r.URL.Query().Get("model"); m != "" {
+		modelFilter = "WHERE model = {model:String}"
+		params["model"] = m
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			run_id,
+			model,
+			provider,
+			min(timestamp) as timestamp,
+			count() as total,
+			countIf(pass = true) as passed,
+			countIf(pass = false) as failed,
+			round(countIf(pass = true) / count() * 100, 1) as accuracy,
+			avg(duration_ms) as avg_duration_ms,
+			any(parameters) as parameters
+		FROM eval_bfcl
+		%s
+		GROUP BY run_id, model, provider
+		ORDER BY timestamp DESC
+		FORMAT JSONEachRow`, modelFilter)
+
+	writeQueryResult(w, r, h.db, query, params)
+}
+
+// bfclDetailHandler serves GET /api/evals/bfcl/{run_id} — per-case results.
+type bfclDetailHandler struct {
+	db Querier
+}
+
+func (h *bfclDetailHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	runID := r.PathValue("run_id")
+	if runID == "" {
+		axon.WriteError(w, http.StatusBadRequest, "run_id is required")
+		return
+	}
+
+	query := `
+		SELECT
+			case_id,
+			category,
+			pass,
+			error,
+			expected,
+			got,
+			duration_ms
+		FROM eval_bfcl
+		WHERE run_id = {run_id:String}
+		ORDER BY category, case_id
+		FORMAT JSONEachRow`
+	params := map[string]string{"run_id": runID}
+
+	writeQueryResult(w, r, h.db, query, params)
+}
+
+// bfclCompareHandler serves GET /api/evals/bfcl/compare?models=X,Y — side-by-side.
+type bfclCompareHandler struct {
+	db Querier
+}
+
+func (h *bfclCompareHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	query := `
+		SELECT
+			model,
+			category,
+			count() as total,
+			countIf(pass = true) as passed,
+			round(countIf(pass = true) / count() * 100, 1) as accuracy,
+			avg(duration_ms) as avg_duration_ms
+		FROM eval_bfcl
+		WHERE run_id IN (
+			SELECT run_id FROM eval_bfcl
+			GROUP BY run_id
+			ORDER BY min(timestamp) DESC
+			LIMIT 10
+		)
+		GROUP BY model, category
+		ORDER BY model, category
+		FORMAT JSONEachRow`
+
+	writeQueryResult(w, r, h.db, query, nil)
+}
+
 // runsHandler serves GET /api/runs — lists available runs
 type runsHandler struct {
 	db Querier
