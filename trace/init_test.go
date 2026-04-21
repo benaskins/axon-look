@@ -49,3 +49,27 @@ func TestInit_OTLPWhenEndpointSet(t *testing.T) {
 		t.Fatalf("provider type wrong: %T", otel.GetTracerProvider())
 	}
 }
+
+func TestChooseExporters_StdoutOnlyWhenOTLPUnset(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+
+	exporters, err := chooseExporters(context.Background())
+	if err != nil {
+		t.Fatalf("chooseExporters: %v", err)
+	}
+	if len(exporters) != 1 {
+		t.Errorf("len(exporters) = %d, want 1 (stdout only)", len(exporters))
+	}
+}
+
+func TestChooseExporters_StdoutAndOTLPWhenEndpointSet(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+
+	exporters, err := chooseExporters(context.Background())
+	if err != nil {
+		t.Fatalf("chooseExporters: %v", err)
+	}
+	if len(exporters) != 2 {
+		t.Errorf("len(exporters) = %d, want 2 (stdout + otlp)", len(exporters))
+	}
+}
