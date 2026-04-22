@@ -21,7 +21,9 @@ func (h *traceByIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := `
 		SELECT trace_id, span_id, parent_span_id, name, kind, service_name,
 		       scope_name, scope_version, start_time, end_time, duration_ns,
-		       status_code, status_message, attributes, events, links
+		       status_code, status_message,
+		       resource_attributes, scope_attributes, attributes,
+		       events, links
 		FROM spans
 		WHERE trace_id = {trace_id:String}
 		ORDER BY start_time ASC`

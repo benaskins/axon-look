@@ -2,6 +2,7 @@ package duckdb
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -90,6 +91,46 @@ func TestTraceByID_ReturnsOrderedSpans(t *testing.T) {
 	if rows[1]["name"] != "child" {
 		t.Errorf("rows[1].name = %v", rows[1]["name"])
 	}
+}
+
+func TestTraceByID_IncludesResourceAttributes(t *testing.T) {
+	d := mustOpen(t)
+	seedSpans(t, d)
+	srv := NewServer(nil, d).Handler()
+
+	rows, code := get(t, srv, "/api/traces/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	if code != 200 {
+		t.Fatalf("code = %d", code)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows")
+	}
+	raw, ok := rows[0]["resource_attributes"]
+	if !ok {
+		t.Fatalf("resource_attributes missing from response; keys=%v", keysOf(rows[0]))
+	}
+	if raw == nil {
+		t.Fatal("resource_attributes is null; expected JSON object string")
+	}
+	s, ok := raw.(string)
+	if !ok {
+		t.Fatalf("resource_attributes = %T %v, want string", raw, raw)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(s), &m); err != nil {
+		t.Fatalf("resource_attributes not valid JSON: %v (%s)", err, s)
+	}
+	if m["service.name"] != "svc-a" {
+		t.Errorf("resource_attributes[service.name] = %v, want svc-a", m["service.name"])
+	}
+}
+
+func keysOf(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 func TestTraceByID_UnknownTraceEmpty(t *testing.T) {
