@@ -103,5 +103,5 @@ func (d *DuckDB) InitSchema(ctx context.Context) error {
 			return fmt.Errorf("init schema: %w", err)
 		}
 	}
-	return nil
+	return d.initSpans(ctx)
 }

@@ -46,6 +46,7 @@ func TestInitSchema_CreatesAllTables(t *testing.T) {
 		"events_relationship",
 		"events_run",
 		"events_tool_invocation",
+		"spans",
 	}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("tables = %v, want %v", got, want)
