@@ -202,7 +202,7 @@ func TestInsertTracesData_Empty(t *testing.T) {
 	}
 }
 
-func TestAnyValueAny_AllKinds(t *testing.T) {
+func TestAnyValueAny_ScalarKinds(t *testing.T) {
 	cases := []struct {
 		name string
 		in   *commonpb.AnyValue
@@ -221,6 +221,85 @@ func TestAnyValueAny_AllKinds(t *testing.T) {
 				t.Errorf("anyValueAny() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestAnyValueAny_ArrayAndKvlist(t *testing.T) {
+	arr := &commonpb.AnyValue{Value: &commonpb.AnyValue_ArrayValue{ArrayValue: &commonpb.ArrayValue{Values: []*commonpb.AnyValue{
+		{Value: &commonpb.AnyValue_StringValue{StringValue: "a"}},
+		{Value: &commonpb.AnyValue_IntValue{IntValue: 2}},
+	}}}}
+	out, ok := anyValueAny(arr).([]any)
+	if !ok {
+		t.Fatalf("array: got %T", anyValueAny(arr))
+	}
+	if len(out) != 2 || out[0] != "a" || out[1].(int64) != 2 {
+		t.Errorf("array = %v", out)
+	}
+
+	kv := &commonpb.AnyValue{Value: &commonpb.AnyValue_KvlistValue{KvlistValue: &commonpb.KeyValueList{Values: []*commonpb.KeyValue{
+		{Key: "k", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "v"}}},
+	}}}}
+	m, ok := anyValueAny(kv).(map[string]any)
+	if !ok {
+		t.Fatalf("kvlist: got %T", anyValueAny(kv))
+	}
+	if m["k"] != "v" {
+		t.Errorf("kvlist[k] = %v", m["k"])
+	}
+}
+
+func TestInsertTracesData_EventsAndLinksJSONShape(t *testing.T) {
+	d := mustOpen(t)
+	ctx := context.Background()
+
+	traceID := mustHex(t, "00000000000000000000000000000010")
+	spanID := mustHex(t, "0000000000000001")
+	linkedTrace := mustHex(t, "00000000000000000000000000000020")
+	linkedSpan := mustHex(t, "0000000000000002")
+
+	data := &tracepb.TracesData{
+		ResourceSpans: []*tracepb.ResourceSpans{{
+			Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{
+				{Key: "service.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "svc"}}},
+			}},
+			ScopeSpans: []*tracepb.ScopeSpans{{
+				Scope: &commonpb.InstrumentationScope{Name: "s"},
+				Spans: []*tracepb.Span{{
+					TraceId:           traceID,
+					SpanId:            spanID,
+					Name:              "with-events-and-links",
+					StartTimeUnixNano: 1_700_000_000_000_000_000,
+					EndTimeUnixNano:   1_700_000_000_100_000_000,
+					Events: []*tracepb.Span_Event{{
+						TimeUnixNano: 1_700_000_000_050_000_000,
+						Name:         "checkpoint",
+						Attributes: []*commonpb.KeyValue{
+							{Key: "note", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "half-way"}}},
+						},
+					}},
+					Links: []*tracepb.Span_Link{{
+						TraceId: linkedTrace,
+						SpanId:  linkedSpan,
+						Attributes: []*commonpb.KeyValue{
+							{Key: "kind", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "follows-from"}}},
+						},
+					}},
+				}},
+			}},
+		}},
+	}
+
+	if err := d.InsertTracesData(ctx, data); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var events, links string
+	if err := d.DB().QueryRowContext(ctx, `SELECT events, links FROM spans`).Scan(&events, &links); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if events == "[]" || links == "[]" {
+		t.Errorf("events=%q links=%q", events, links)
 	}
 }
 

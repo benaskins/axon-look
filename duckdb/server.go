@@ -44,6 +44,9 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("GET /api/evals/{run_id}", &evalsDetailHandler{db: s.db})
 		mux.Handle("GET /api/runs", &runsHandler{db: s.db})
 		mux.Handle("GET /api/runs/{run_id}/summary", &runSummaryHandler{db: s.db})
+		mux.Handle("GET /api/traces/{trace_id}", &traceByIDHandler{db: s.db})
+		mux.Handle("GET /api/services", &servicesHandler{db: s.db})
+		mux.Handle("GET /api/spans/recent", &spansRecentHandler{db: s.db})
 	}
 
 	if s.staticFiles != nil {
